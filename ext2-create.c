@@ -217,7 +217,7 @@ void write_superblock(int fd) {
 	superblock.s_wtime = current_time;	/* Write time */
 	superblock.s_mnt_count         = 0; /* Number of times mounted so far */
 
-	superblock.s_max_mnt_count     = 0; /* Make this unlimited */
+	superblock.s_max_mnt_count     = -1; /* Make this unlimited */
 	superblock.s_magic = EXT2_SUPER_MAGIC; /* ext2 Signature */
 	superblock.s_state             = 1; /* File system is clean */
 	superblock.s_errors            = 1; /* Ignore the error (continue on) */
@@ -267,13 +267,14 @@ void write_block_group_descriptor_table(int fd) {
 
 	// TODO It's all yours
 	// TODO finish the block group descriptor number setting
+	block_group_descriptor.bg_free_blocks_count = NUM_FREE_BLOCKS;
+	block_group_descriptor.bg_free_inodes_count = NUM_FREE_INODES;
+	
 	block_group_descriptor.bg_block_bitmap = BLOCK_BITMAP_BLOCKNO;
 	block_group_descriptor.bg_inode_bitmap = INODE_BITMAP_BLOCKNO;
 	block_group_descriptor.bg_inode_table = INODE_TABLE_BLOCKNO;
-	block_group_descriptor.bg_free_blocks_count = NUM_FREE_BLOCKS;
-	block_group_descriptor.bg_free_inodes_count = NUM_FREE_INODES;
 
-	//::::::::::::::::::unsure::::::::::::::::::://
+	//two for the root and the lost+found?//
 	block_group_descriptor.bg_used_dirs_count = 2;
 
 	ssize_t size = sizeof(block_group_descriptor);
@@ -293,18 +294,10 @@ void write_block_bitmap(int fd)
 	// TODO It's all yours
 	u8 map_value[BLOCK_SIZE] = {0x00};	//initialize the bitmap
 
-
 	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
 	{
 		errno_exit("write");
 	}
-}
-
-void set_bitmap(u8 *map_value, u32 i)
-{
-	u32 byte = (i-1) / 8;
-	u32 bit = (i-1) % 8;
-	map_value[byte] |= (1 << bit);
 }
 
 void write_inode_bitmap(int fd)
@@ -317,20 +310,28 @@ void write_inode_bitmap(int fd)
 
 	// TODO It's all yours
 	u8 map_value[BLOCK_SIZE];
-
-	for (u32 i = 1; i < LAST_BLOCK + 1; i++)
-	{
-		set_bitmap(map_value, i);
-	}
-
+	
 	for (u32 i = NUM_INODES * 8; i <= NUM_BLOCKS * 8; i++)
 	{
-		set_bitmap(map_value, i);
+		u32 byte = (i-1) / 8;
+		u32 bit = (i-1) % 8;
+		map_value[byte] |= (1 << bit);
+	}
+	
+	//write bitmap for each block
+	for (u32 i = 1; i < LAST_BLOCK + 1; i++)
+	{
+		//determine which byte and bit 
+		u32 byte = (i-1) / 8;
+		u32 bit = (i-1) % 8;
+
+		//write in only the changed bit
+		map_value[byte] |= (1 << bit);
 	}
 
-	ssize_t size = sizeof(map_value);
+	ssize_t map_size = sizeof(map_value);
 
-	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
+	if (write(fd, map_value, map_size) != map_size)
 	{
 		errno_exit("write");
 	}
@@ -409,6 +410,7 @@ void write_inode_table(int fd) {
 	write_inode(fd, HELLO_INO, &hello);
 
 	struct ext2_inode root = {0};
+	//set permissions
 	root.i_mode = EXT2_S_IFDIR
 								| EXT2_S_IRUSR
 								| EXT2_S_IWUSR
@@ -419,8 +421,8 @@ void write_inode_table(int fd) {
 								| EXT2_S_IXOTH;
 	root.i_size = BLOCK_SIZE;
 	root.i_uid, root.i_gid = 0;
-	root.i_atime, root.i_ctime, root.i_mtime = current_time;
 	root.i_dtime = 0;
+	root.i_atime, root.i_ctime, root.i_mtime = current_time;
 	root.i_links_count = 3;
 	root.i_blocks = 2;
 	root.i_block[0] = ROOT_DIR_BLOCKNO;

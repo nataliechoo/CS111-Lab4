@@ -1,16 +1,16 @@
 # Hey! I'm Filing Here
 
-In this lab, I successfully implemented the following TODO
+In this lab, I successfully implemented the filesystem containing a lost+found directory, root directory, and hello-world file with a symlink called hello.
 
 ## Building
 
-TODO
+make
 
 ## Running
 
-TODO
+./ext2-create
 
 
 ## Cleaning up
 
-TODO
+make clean
