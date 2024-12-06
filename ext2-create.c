@@ -294,6 +294,23 @@ void write_block_bitmap(int fd)
 	// TODO It's all yours
 	u8 map_value[BLOCK_SIZE] = {0x00};	//initialize the bitmap
 
+	for (u32 i = 1; i < LAST_BLOCK + 1; i++)
+	{
+		//determine which byte and bit 
+		u32 byte = (i-1) / 8;
+		u32 bit = (i-1) % 8;
+
+		//write in only the changed bit
+		map_value[byte] |= (1 << bit);
+	}
+
+	for (u32 i = NUM_INODES * 8; i <= NUM_BLOCKS * 8; i++)
+	{
+		u32 byte = (i-1) / 8;
+		u32 bit = (i-1) % 8;
+		map_value[byte] |= (1 << bit);
+	}
+
 	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
 	{
 		errno_exit("write");
@@ -309,17 +326,10 @@ void write_inode_bitmap(int fd)
 	}
 
 	// TODO It's all yours
-	u8 map_value[BLOCK_SIZE];
-	
-	for (u32 i = NUM_INODES * 8; i <= NUM_BLOCKS * 8; i++)
-	{
-		u32 byte = (i-1) / 8;
-		u32 bit = (i-1) % 8;
-		map_value[byte] |= (1 << bit);
-	}
-	
+	u8 map_value[BLOCK_SIZE] = {0x00};
+		
 	//write bitmap for each block
-	for (u32 i = 1; i < LAST_BLOCK + 1; i++)
+	for (u32 i = 1; i < LAST_INO + 1; i++)
 	{
 		//determine which byte and bit 
 		u32 byte = (i-1) / 8;
@@ -328,6 +338,36 @@ void write_inode_bitmap(int fd)
 		//write in only the changed bit
 		map_value[byte] |= (1 << bit);
 	}
+
+	for (u32 i = NUM_INODES + 1; i <= NUM_BLOCKS * 8; i++)
+	{
+		u32 byte = (i-1) / 8;
+		u32 bit = (i-1) % 8;
+		map_value[byte] |= (1 << bit);
+	}
+	
+
+	//write bitmap for each block
+	// for (u32 i = 1; i < LAST_BLOCK+1; i++)
+	// {
+	// 	//determine which byte and bit 
+	// 	u32 byte = (i-1) / 8;
+	// 	u32 bit = (i-1) % 8;
+
+	// 	printf("%u\n", i);
+
+	// 	//write in only the changed bit
+	// 	map_value[byte] |= (1 << bit);
+	// }
+
+	// printf("printing inodes\n");
+	// for (u32 i = 1; i <= LAST_INO; i++)
+	// {
+	// 	u32 byte = (i-1) / 8;
+	// 	u32 bit = (i-1) % 8;
+	// 	printf("%u\n", i);
+	// 	map_value[byte] |= (1 << bit);
+	// }
 
 	ssize_t map_size = sizeof(map_value);
 
@@ -384,8 +424,11 @@ void write_inode_table(int fd) {
 								| EXT2_S_IRGRP 
 								| EXT2_S_IROTH;
 	hello_world.i_size = 12;	//file size in bytes
-	hello_world.i_uid, hello_world.i_gid = 1000;
-	hello_world.i_atime, hello_world.i_ctime, hello_world.i_mtime = current_time;
+	hello_world.i_uid = 1000;
+	hello_world.i_gid = 1000;
+	hello_world.i_atime = current_time;
+	hello_world.i_ctime = current_time;
+	hello_world.i_mtime = current_time;
 	hello_world.i_dtime = 0;
 	hello_world.i_links_count = 1;
 	hello_world.i_blocks = 2; //:::::::::::::UNSURE:::::::::::::::::::::::
@@ -399,8 +442,11 @@ void write_inode_table(int fd) {
 								| EXT2_S_IWUSR
 								| EXT2_S_IRGRP
 								| EXT2_S_IROTH;
-	hello.i_uid, hello.i_gid = 1000;
-	hello.i_atime, hello.i_ctime, hello.i_mtime = current_time;
+	hello.i_uid = 1000;
+	hello.i_gid = 1000;
+	hello.i_atime = current_time;
+	hello.i_ctime = current_time;
+	hello.i_mtime = current_time;
 	hello.i_dtime = 0;
 	hello.i_links_count = 1;
 	hello.i_blocks = 0; //:::::::::::::UNSURE:::::::::::::::::::::::
@@ -420,9 +466,12 @@ void write_inode_table(int fd) {
 								| EXT2_S_IROTH
 								| EXT2_S_IXOTH;
 	root.i_size = BLOCK_SIZE;
-	root.i_uid, root.i_gid = 0;
+	root.i_uid = 0;
+	root.i_gid = 0;
 	root.i_dtime = 0;
-	root.i_atime, root.i_ctime, root.i_mtime = current_time;
+	root.i_atime = current_time;
+	root.i_ctime = current_time;
+	root.i_mtime = current_time;
 	root.i_links_count = 3;
 	root.i_blocks = 2;
 	root.i_block[0] = ROOT_DIR_BLOCKNO;
@@ -478,9 +527,10 @@ void write_root_dir_block(int fd)
 
 	//fill remaining bytes
 	struct ext2_dir_entry remainder = {0};
+	remainder.rec_len = remaining_bytes;
 	dir_entry_write(remainder, fd);
 
-	remainder.rec_len = remaining_bytes;
+	//remainder.rec_len = remaining_bytes;
 
 	
 	{
